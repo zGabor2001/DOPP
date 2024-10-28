@@ -2,7 +2,7 @@ import os
 import pandas as pd
 
 from load_data import load_weather_data
-from test_load_data import test_load_weather_data
+from tests.test_load_data import test_load_weather_data
 
 data_path = os.path.join(os.getcwd(), "data")
 weather_data_path = os.path.join(data_path, 'weather')
