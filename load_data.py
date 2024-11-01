@@ -20,7 +20,6 @@ def load_weather_data(weather_data_path: str) -> typing.Tuple[pd.DataFrame, pd.D
     weather_data: data frame containing the tri-daily (hours) weather data
     weather_data_daily: data frame containing the daily weather data (e.g. precip, precipType, etc.)
     """
-    import re
 
     dfs: list = []
     for file in os.listdir(weather_data_path):
@@ -40,10 +39,13 @@ def load_weather_data(weather_data_path: str) -> typing.Tuple[pd.DataFrame, pd.D
 
     hour_df_list: list = []
     for hour_tag in dfs_by_suffix.keys():
-        dfs_by_suffix[hour_tag]['date']: pd.Series = (dfs_by_suffix[hour_tag]['date'].dt.floor('D') +
-                                       pd.Timedelta(hours=int(re.sub(r'\D', '', hour_tag))))
-        non_hour_cols: list = [re.sub(r'_[^_]*$', '', col) for col in dfs_by_suffix[hour_tag].columns]
+        hour = int(''.join([char for char in hour_tag if char.isdigit()]))
+        dfs_by_suffix[hour_tag]['date'] = (dfs_by_suffix[hour_tag]['date'].dt.floor('D') +
+                                           pd.Timedelta(hours=hour))
+
+        non_hour_cols = [col.split('_')[0] for col in dfs_by_suffix[hour_tag].columns]
         dfs_by_suffix[hour_tag].columns = non_hour_cols
+
         hour_df_list.append(dfs_by_suffix[hour_tag])
 
     weather_data: pd.DataFrame = pd.concat(hour_df_list, ignore_index=True)
@@ -58,7 +60,7 @@ def load_weather_data(weather_data_path: str) -> typing.Tuple[pd.DataFrame, pd.D
              df['date'].dt.month,
              df['date'].dt.day,
              df['date'].dt.hour],
-            names=['Year', 'Month', 'Day', 'Hour']
+            names=['year', 'month', 'day', 'hour']
         )
 
         df.set_index(multi_index, inplace=True)
@@ -68,3 +70,43 @@ def load_weather_data(weather_data_path: str) -> typing.Tuple[pd.DataFrame, pd.D
     weather_data_daily: pd.DataFrame = weather_data_daily.droplevel(level=-1)
 
     return weather_data, weather_data_daily
+
+
+def load_traffic_data() -> pd.DataFrame:
+    """
+    Load the traffic data from the files into a pndas dataframe
+
+    Returns
+    --------
+    traffic_data: data frame containing the traffic data
+    """
+
+    traffic_data_path = "C:\\DS\\repos\\DOPP\\data\\traffic\\traffic_disruptions.csv"
+
+    traffic: pd.DataFrame = pd.read_csv(traffic_data_path, sep=';')
+    traffic['date'] = pd.to_datetime(traffic['Start']).dt.floor('D')
+
+    multi_index: pd.MultiIndex = pd.MultiIndex.from_arrays(
+        [traffic['date'].dt.year,
+         traffic['date'].dt.month,
+         traffic['date'].dt.day],
+        names=['year', 'month', 'day']
+    )
+
+    traffic.set_index(multi_index, inplace=True)
+    traffic.sort_index(inplace=True)
+
+    for col in ['Titel', 'Beschreibung', 'Linie(n)']:
+        traffic[col] = traffic[col].astype(str)
+
+    for col in ['Start', 'Verkehrsaufnahme', 'Ende', 'date']:
+        traffic[col] = pd.to_datetime(traffic[col])
+
+    traffic = traffic[traffic['Titel'].str.contains('Badner Bahn')]
+
+    traffic['disruption'] = traffic['Titel'].str.replace(r'Badner Bahn:|,', '', regex=True)
+
+    traffic['disruption'] = traffic['disruption'].str.extract(r'(\s\S{4}.*)')
+    traffic['disruption'] = traffic['disruption'].str.strip()
+
+    return traffic
