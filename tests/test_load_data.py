@@ -38,3 +38,6 @@ def test_load_weather_data(weather_data_path: str) -> None:
                     f"Value in multiindex level {i} not in expected {multiindex_expected[i]}")
 
     print("All tests passed")
+
+def test_load_traffic_data():
+    pass

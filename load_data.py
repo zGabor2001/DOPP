@@ -102,11 +102,35 @@ def load_traffic_data() -> pd.DataFrame:
     for col in ['Start', 'Verkehrsaufnahme', 'Ende', 'date']:
         traffic[col] = pd.to_datetime(traffic[col])
 
-    traffic = traffic[traffic['Titel'].str.contains('Badner Bahn')]
+    #traffic = traffic[traffic['Titel'].str.contains('Badner Bahn')]
 
     traffic['disruption'] = traffic['Titel'].str.replace(r'Badner Bahn:|,', '', regex=True)
-
     traffic['disruption'] = traffic['disruption'].str.extract(r'(\s\S{4}.*)')
     traffic['disruption'] = traffic['disruption'].str.strip()
+
+    linie_regex_map = {
+        'bus': '\d{2}[AB]',
+        'subway': 'U[1-6](?![Zz])',
+        'tram': '^(D|O|U2[Zz]|VRT|WLB|Badner Bahn|\b\d{1,2}\b)(?![A-Za-z])'
+    }
+
+    for key in linie_regex_map.keys():
+        traffic[key] = traffic['Linie(n)'].str.contains(fr'{linie_regex_map[key]}')
+
+    traffic['duration'] = traffic['Ende'] - traffic['Start']
+
+    traffic = traffic[['disruption', 'bus', 'subway', 'tram', 'duration']]
+
+    map_similar_entries = {'Fahrtbehinderung': 'Fahrbehinderung',
+                           'Verspätungen': 'Verspätung',
+                           'Schadhaftes Fahrzeug Verspätungen': 'Schadhaftes Fahrzeug',
+                           'Regenbogenparade Verspätungen': 'Veranstaltung',
+                           'Verkehrsbedingte Verspätung Verspätungen': 'Verkehrsbedingte Verspätungen',
+                           'Verkehrsbedingt Verspätungen': 'Verkehrsbedingte Verspätungen',
+                           'Verkehrsbedingt': 'Verkehrsbedingte Verspätungen',
+                           'Verkehrsstörung Verspätungen': 'Verkehrsbedingte Verspätungen',
+                           'Fremder Verkehrsunfall': 'Verkehrsunfall',
+                           }
+    traffic['disruption'] = traffic['disruption'].replace(map_similar_entries)
 
     return traffic
